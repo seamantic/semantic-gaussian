@@ -1,0 +1,51 @@
+scene:
+  scene_path: /ocean/projects/cis250226p/ptatavar/semantic-gaussians/dataset/data/scene_0003_00_processed
+  test_cameras: true
+  colmap_images: color
+  colmap_eval_hold: 8
+  downscale_ratio: 1
+  white_background: false
+  device: cuda:0
+pipeline:
+  convert_shs_python: false
+  compute_cov3d_python: false
+  debug: false
+  seed: 0
+model:
+  sh_degree: 3
+  model_dir: ./output/scene0003_00
+  load_iteration: -1
+  device: cuda:0
+  random_init: false
+train:
+  exp_name: scene0003_00
+  iterations: 30000
+  num_workers: 8
+  test_iterations:
+  - 100
+  - 7000
+  - 30000
+  save_iterations:
+  - 7000
+  - 30000
+  checkpoint_iterations: []
+  cut_edge: true
+  position_lr_init: 0.00016
+  position_lr_final: 1.6e-06
+  position_lr_delay_mult: 0.01
+  position_lr_max_steps: 10000
+  feature_lr: 0.0025
+  opacity_lr: 0.05
+  scaling_lr: 0.005
+  rotation_lr: 0.001
+  percent_dense: 0.01
+  lambda_dssim: 0.2
+  densification_interval: 100
+  opacity_reset_interval: 3000
+  densify_from_iter: 500
+  densify_until_iter: 15000
+  densify_grad_threshold: 0.0002
+  random_background: false
+--config: null
+/ocean/projects/cis250226p/ptatavar/semantic-gaussians/config/official_train:
+  yaml: null
