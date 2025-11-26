@@ -79,6 +79,8 @@ def eval_mink(config, model_3d, label_mapping):
 
     confusion = np.zeros((config.scene.num_classes + 1, config.scene.num_classes), dtype=np.ulonglong)
 
+    eval_scene = [eval_scene[0]]
+
     for i, scene_name in enumerate(tqdm(eval_scene)):
         torch.cuda.empty_cache()
         with torch.no_grad():
@@ -300,6 +302,8 @@ def eval_mink_and_fusion(config, model_3d, label_mapping):
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
     confusion = np.zeros((config.scene.num_classes + 1, config.scene.num_classes), dtype=np.ulonglong)
+
+    eval_scene = [eval_scene[0]]
 
     for i, scene_name in enumerate(tqdm(eval_scene)):
         torch.cuda.empty_cache()
@@ -540,12 +544,6 @@ def eval_labelmap(config, model_3d, label_mapping):
     from model.openseg_predictor import OpenSeg
 
     model_2d = OpenSeg(None, "ViT-L/14@336px")
-
-    breakpoint()
-    
-    eval_scene = eval_scene[0]
-
-    breakpoint()
 
     for i, scene_name in enumerate(tqdm(eval_scene)):
         torch.cuda.empty_cache()

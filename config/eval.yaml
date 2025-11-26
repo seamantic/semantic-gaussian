@@ -33,7 +33,7 @@ distill:
   feature_type: all
 
 eval:
-  eval_mode: 3d # choose from 2d, 3d, 2d_and_3d, pretrained, labelmap
+  eval_mode: 2d_and_3d # choose from 2d, 3d, 2d_and_3d, pretrained, labelmap
   width: 648
   height: 484
   pred_on_3d: True
