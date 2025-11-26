@@ -1,8 +1,8 @@
 scene:
-  scene_path: "/PATH/TO/YOUR/OWN"
-  dataset_name: "cocomap"
+  scene_path: "dataset/data/validation_scenes"
+  dataset_name: "scannet20"
   test_cameras: False
-  colmap_images: "images"
+  colmap_images: "color"
   colmap_eval_hold: 8
   downscale_ratio: 1
   white_background: False
@@ -16,24 +16,24 @@ pipeline:
 
 model:
   sh_degree: 3
-  model_dir: "/PATH/TO/YOUR/OWN"
-  load_iteration: -1
+  model_dir: "output"
+  load_iteration: 30000
   device: "cuda:0"
 
 fusion:
-  out_dir: "/PATH/TO/YOUR/OWN"
+  out_dir: "fusion_output"
   model_2d: openseg
 
 distill:
-  model_3d: MinkUNet34A
-  model_dir: "/PATH/TO/YOUR/OWN"
+  model_3d: MinkUNet14A
+  model_dir: "/ocean/projects/cis250226p/shared/semantic-gaussian/results_distill/openseg_new"
   text_model: openseg
-  voxel_size: 0.02
+  voxel_size: 0.04
   iteration: 100
   feature_type: all
 
 eval:
-  eval_mode: labelmap # choose from 2d, 3d, 2d_and_3d, pretrained, labelmap
+  eval_mode: 3d # choose from 2d, 3d, 2d_and_3d, pretrained, labelmap
   width: 648
   height: 484
   pred_on_3d: True

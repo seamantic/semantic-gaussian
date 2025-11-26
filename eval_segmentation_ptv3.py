@@ -18,6 +18,14 @@ from utils import metric
 
 import MinkowskiEngine as ME
 
+# Check if PointTransformerV3 is available
+try:
+    from model.point_transformer_v3_wrapper import PointTransformerV3FromVoxels
+    PTV3_AVAILABLE = True
+except ImportError:
+    PTV3_AVAILABLE = False
+    print("Warning: PointTransformerV3 not available. Install PointTransformerV3 to use it.")
+
 
 def init_dir(config):
     print("Distill folder: {}".format(config.distill.model_dir))
@@ -40,10 +48,33 @@ def evaluate(config):
         config.scene.num_classes = 20
         label_mapping = read_label_mapping("./dataset/scannet/scannetv2-labels.modified.tsv", label_to="cocomapid")
 
-    if config.distill.feature_type == "all":
-        model_3d = mink_unet(in_channels=56, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
-    elif config.distill.feature_type == "color":
-        model_3d = mink_unet(in_channels=48, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
+    # Check if using PointTransformerV3
+    use_ptv3 = config.distill.model_3d.startswith("PointTransformerV3") or config.distill.model_3d.startswith("PTV3")
+    
+    if use_ptv3 and PTV3_AVAILABLE:
+        # Use PointTransformerV3
+        if config.distill.feature_type == "all":
+            model_3d = PointTransformerV3FromVoxels(
+                in_channels=56, 
+                out_channels=768, 
+                D=3, 
+                arch=config.distill.model_3d,
+                voxel_size=config.distill.voxel_size
+            ).cuda()
+        elif config.distill.feature_type == "color":
+            model_3d = PointTransformerV3FromVoxels(
+                in_channels=48, 
+                out_channels=768, 
+                D=3, 
+                arch=config.distill.model_3d,
+                voxel_size=config.distill.voxel_size
+            ).cuda()
+    else:
+        # Use MinkUNet (default)
+        if config.distill.feature_type == "all":
+            model_3d = mink_unet(in_channels=56, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
+        elif config.distill.feature_type == "color":
+            model_3d = mink_unet(in_channels=48, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
 
     ckpt_path = init_dir(config)
     model_3d.load_state_dict(torch.load(ckpt_path))
@@ -63,6 +94,9 @@ def evaluate(config):
 def eval_mink(config, model_3d, label_mapping):
     eval_scene = os.listdir(config.model.model_dir)
     eval_scene.sort()
+
+    # Check if using PointTransformerV3
+    use_ptv3 = config.distill.model_3d.startswith("PointTransformerV3") or config.distill.model_3d.startswith("PTV3")
 
     model_2d_name = config.distill.text_model.lower().replace("_", "")
     if model_2d_name == "lseg":
@@ -108,8 +142,12 @@ def eval_mink(config, model_3d, label_mapping):
             features = torch.from_numpy(features).float()
             vox_ind = torch.from_numpy(vox_ind).cuda()
 
-            sinput = ME.SparseTensor(features.cuda(), locs.cuda())
-            output = model_3d(sinput).F[:, model_2d.embedding_dim * 0 : model_2d.embedding_dim * 1]
+            # Forward pass - different for MinkUNet vs PointTransformerV3
+            if use_ptv3 and PTV3_AVAILABLE:
+                output = model_3d(locs.cuda(), features.cuda())[:, model_2d.embedding_dim * 0 : model_2d.embedding_dim * 1]
+            else:
+                sinput = ME.SparseTensor(features.cuda(), locs.cuda())
+                output = model_3d(sinput).F[:, model_2d.embedding_dim * 0 : model_2d.embedding_dim * 1]
             output /= output.norm(dim=-1, keepdim=True) + 1e-8
 
             views = scene.getTrainCameras()
@@ -272,6 +310,9 @@ def eval_mink_and_fusion(config, model_3d, label_mapping):
     eval_scene = os.listdir(config.model.model_dir)
     eval_scene.sort()
 
+    # Check if using PointTransformerV3
+    use_ptv3 = config.distill.model_3d.startswith("PointTransformerV3") or config.distill.model_3d.startswith("PTV3")
+
     performance_dict = {}
 
     model_2d_name = config.fusion.model_2d.lower().replace("_", "")
@@ -330,8 +371,12 @@ def eval_mink_and_fusion(config, model_3d, label_mapping):
             features = torch.from_numpy(features).float()
             vox_ind = torch.from_numpy(vox_ind).cuda()
 
-            sinput = ME.SparseTensor(features.cuda(), locs.cuda())
-            output = model_3d(sinput).F[:, text_model.embedding_dim * 0 : text_model.embedding_dim * 1]
+            # Forward pass - different for MinkUNet vs PointTransformerV3
+            if use_ptv3 and PTV3_AVAILABLE:
+                output = model_3d(locs.cuda(), features.cuda())[:, text_model.embedding_dim * 0 : text_model.embedding_dim * 1]
+            else:
+                sinput = ME.SparseTensor(features.cuda(), locs.cuda())
+                output = model_3d(sinput).F[:, text_model.embedding_dim * 0 : text_model.embedding_dim * 1]
 
             feature_path = os.path.join(eval_config.fusion.out_dir, scene_name, "0.pt")
             gt = torch.load(feature_path)
@@ -541,12 +586,6 @@ def eval_labelmap(config, model_3d, label_mapping):
 
     model_2d = OpenSeg(None, "ViT-L/14@336px")
 
-    breakpoint()
-    
-    eval_scene = eval_scene[0]
-
-    breakpoint()
-
     for i, scene_name in enumerate(tqdm(eval_scene)):
         torch.cuda.empty_cache()
         with torch.no_grad():
@@ -598,3 +637,4 @@ if __name__ == "__main__":
 
     set_seed(config.pipeline.seed)
     evaluate(config)
+

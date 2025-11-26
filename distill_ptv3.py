@@ -20,6 +20,14 @@ from dataset.feature_dataset import FeatureDataset
 
 import MinkowskiEngine as ME
 
+# Check if PointTransformerV3 is available
+try:
+    from model.point_transformer_v3_wrapper import PointTransformerV3FromVoxels
+    PTV3_AVAILABLE = True
+except ImportError:
+    PTV3_AVAILABLE = False
+    print("Warning: PointTransformerV3 not available. Install PointTransformerV3 to use it.")
+
 
 def collate_fn(batch):
     locs, features, features_gt, mask, head_id = list(zip(*batch))
@@ -58,10 +66,34 @@ def init_dir(config):
 
 
 def distill(config):
-    if config.distill.feature_type == "all":
-        model_3d = mink_unet(in_channels=56, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
-    elif config.distill.feature_type == "color":
-        model_3d = mink_unet(in_channels=48, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
+    # Check if using PointTransformerV3
+    use_ptv3 = config.distill.model_3d.startswith("PointTransformerV3") or config.distill.model_3d.startswith("PTV3")
+    
+    if use_ptv3 and PTV3_AVAILABLE:
+        # Use PointTransformerV3
+        if config.distill.feature_type == "all":
+            model_3d = PointTransformerV3FromVoxels(
+                in_channels=56, 
+                out_channels=768, 
+                D=3, 
+                arch=config.distill.model_3d,
+                voxel_size=config.distill.voxel_size
+            ).cuda()
+        elif config.distill.feature_type == "color":
+            model_3d = PointTransformerV3FromVoxels(
+                in_channels=48, 
+                out_channels=768, 
+                D=3, 
+                arch=config.distill.model_3d,
+                voxel_size=config.distill.voxel_size
+            ).cuda()
+    else:
+        # Use MinkUNet (default)
+        if config.distill.feature_type == "all":
+            model_3d = mink_unet(in_channels=56, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
+        elif config.distill.feature_type == "color":
+            model_3d = mink_unet(in_channels=48, out_channels=768, D=3, arch=config.distill.model_3d).cuda()
+    
     model_2d = OpenSeg(None, "ViT-L/14@336px")
 
     writer = init_dir(config)
@@ -103,10 +135,16 @@ def distill(config):
             locs, features, features_gt, mask, head_id = batch
             locs[:, 1:4] += (torch.rand(3) * 100).type_as(locs)
 
-            sinput = ME.SparseTensor(features.cuda(), locs.cuda())
             features_gt, mask = features_gt.cuda(), mask.cuda()
-
-            output = model_3d(sinput).F[mask]
+            
+            # Forward pass - different for MinkUNet vs PointTransformerV3
+            if use_ptv3 and PTV3_AVAILABLE:
+                # PointTransformerV3 works with point cloud format
+                output = model_3d(locs.cuda(), features.cuda())[mask]
+            else:
+                # MinkUNet works with SparseTensor
+                sinput = ME.SparseTensor(features.cuda(), locs.cuda())
+                output = model_3d(sinput).F[mask]
 
             if config.distill.loss_type == "cosine":
                 norm_mask = features_gt.norm(dim=-1) > 0
@@ -151,6 +189,9 @@ def distill(config):
 def eval(config, model_3d, model_2d, voxelizer, iter):
     print("Evaluating at iteration", iter + 1)
     eval_config = deepcopy(config)
+    
+    # Check if using PointTransformerV3
+    use_ptv3 = config.distill.model_3d.startswith("PointTransformerV3") or config.distill.model_3d.startswith("PTV3")
 
     if config.model.dynamic:
         eval_config.scene.scene_path = os.path.join(eval_config.scene.scene_path, "tennis", "50")
@@ -189,9 +230,12 @@ def eval(config, model_3d, model_2d, voxelizer, iter):
     features = torch.from_numpy(features).float()
     vox_ind = torch.from_numpy(vox_ind).cuda()
 
-    sinput = ME.SparseTensor(features.cuda(), locs.cuda())
-
-    features_semantic = model_3d(sinput).F[:, :768]
+    # Forward pass - different for MinkUNet vs PointTransformerV3
+    if use_ptv3 and PTV3_AVAILABLE:
+        features_semantic = model_3d(locs.cuda(), features.cuda())[:, :768]
+    else:
+        sinput = ME.SparseTensor(features.cuda(), locs.cuda())
+        features_semantic = model_3d(sinput).F[:, :768]
     features_semantic = features_semantic / features_semantic.norm(dim=-1, keepdim=True)
 
     bg_color = [1, 1, 1] if eval_config.scene.white_background else [0, 0, 0]
@@ -245,3 +289,4 @@ if __name__ == "__main__":
     set_seed(config.pipeline.seed)
 
     distill(config)
+

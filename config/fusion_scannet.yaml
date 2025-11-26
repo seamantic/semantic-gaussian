@@ -1,8 +1,8 @@
 scene:
-  scene_path: "/PATH/TO/YOUR/OWN"
-  dataset_name: "cocomap"
+  scene_path: "dataset/data/scene_0004_00_processed"
+  dataset_name: "scannet"
   test_cameras: False
-  colmap_images: "images"
+  colmap_images: "color"
   colmap_eval_hold: 8
   downscale_ratio: 1
   white_background: False
@@ -16,7 +16,7 @@ pipeline:
 
 model:
   sh_degree: 3
-  model_dir: "/PATH/TO/YOUR/OWN"
+  model_dir: "output/scene0004_00"
   dynamic: False
   load_iteration: -1
   device: "cuda:0"
@@ -31,4 +31,4 @@ fusion:
   cut_boundary: 10
   n_split_points: 999999999 # train: 80000, eval: 999999999 (large enough)
   num_rand_file_per_scene: 1 # train: 5, eval: 1
-  out_dir: "/PATH/TO/YOUR/OWN"
+  out_dir: "fusion_output/scene0004_00"
