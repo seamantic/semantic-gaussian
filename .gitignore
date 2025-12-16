@@ -178,4 +178,4 @@ cython_debug/
 
 *.whl
 .git_permission_broken/
-semantic_gaussians/
+semantic-gaussians/
