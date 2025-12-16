@@ -1,0 +1,42 @@
+scene:
+  scene_path: "dataset/data/"
+  dataset_name: "scannet20"
+  test_cameras: False
+  colmap_images: "color"
+  colmap_eval_hold: 8
+  downscale_ratio: 1
+  white_background: False
+  device: "cuda:0"
+  
+pipeline:
+  convert_shs_python: False
+  compute_cov3d_python: False
+  debug: False
+  seed: 42
+
+model:
+  sh_degree: 3
+  model_dir: "output"
+  load_iteration: 30000
+  device: "cuda:0"
+
+fusion:
+  out_dir: "fusion_output"
+  model_2d: openseg
+
+distill:
+  model_3d: MinkUNet14A
+  exp_name: pew_new_new
+  model_dir: "/ocean/projects/cis250226p/shared/semantic-gaussian/results_distill/pew_new_new"
+  text_model: openseg
+  voxel_size: 0.04
+  iteration: 200
+  feature_type: all
+
+eval:
+  eval_mode: 3d # choose from 2d, 3d, 2d_and_3d, pretrained, labelmap
+  width: 648
+  height: 484
+  pred_on_3d: True
+  feature_fusion: concat # choose from concat, argmax
+

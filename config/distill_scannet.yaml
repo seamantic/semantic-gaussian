@@ -1,0 +1,41 @@
+scene:
+  scene_path: "/ocean/projects/cis250226p/shared/semantic-gaussian/dataset/data/scene0000_00"
+  dataset_name: "scannet20"
+  test_cameras: False
+  colmap_images: "color"
+  colmap_eval_hold: 8
+  downscale_ratio: 1
+  white_background: False
+  device: "cuda:0"
+  
+pipeline:
+  convert_shs_python: False
+  compute_cov3d_python: False
+  debug: False
+  seed: 1
+
+model:
+  sh_degree: 3
+  model_dir: "/ocean/projects/cis250226p/shared/semantic-gaussian/output"
+  dynamic: False
+  load_iteration: 30000
+  device: "cuda:0"
+
+fusion:
+  out_dir: "fusion_output"
+
+distill:
+  exp_name: new_new_new_new_new_new_20
+  model_3d: MinkUNet14A
+  voxel_size: 0.1
+  aug: True
+  feature_type: all
+  lr: 0.001
+  epochs: 200
+  loss_type: cosine
+  schedule_milestones: [40, 80, 120, 160, 200]
+  schedule_gamma: 0.3
+  batch_size: 1
+  num_workers: 4
+  test_interval: 20
+  save_interval: 20
